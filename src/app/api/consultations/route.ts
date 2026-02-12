@@ -20,8 +20,15 @@ export async function GET(request: NextRequest) {
       ? "consultation_categories!inner(category:item_categories(*))"
       : "consultation_categories(category:item_categories(*))";
 
-    // 검색 시 clients !inner 조인
-    const clientsJoin = search ? "client:clients!inner(*)" : "client:clients(*)";
+    // 검색어가 있을 경우: 업체명으로 매칭되는 client_id 목록을 먼저 조회
+    let matchingClientIds: string[] = [];
+    if (search) {
+      const { data: matchingClients } = await supabase
+        .from("clients")
+        .select("id")
+        .ilike("name", `%${search}%`);
+      matchingClientIds = (matchingClients ?? []).map((c) => c.id);
+    }
 
     let query = supabase
       .from("consultations")
@@ -29,7 +36,7 @@ export async function GET(request: NextRequest) {
         `
         *,
         medium:mediums(*),
-        ${clientsJoin},
+        client:clients(*),
         ${categoriesJoin},
         consultation_tags(tag:tags(*))
         `,
@@ -40,7 +47,11 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (search) {
-      query = query.or(`content.ilike.%${search}%,client.name.ilike.%${search}%`);
+      if (matchingClientIds.length > 0) {
+        query = query.or(`content.ilike.%${search}%,client_id.in.(${matchingClientIds.join(",")})`);
+      } else {
+        query = query.ilike("content", `%${search}%`);
+      }
     }
     if (medium_id) {
       query = query.eq("medium_id", medium_id);
