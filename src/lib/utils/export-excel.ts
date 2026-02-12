@@ -33,90 +33,119 @@ export interface ExcelUploadRow {
 }
 
 /**
- * 업로드용 Excel 양식 다운로드
- * mediumNames, categoryNames를 받아서 안내 시트에 허용 값 목록 표시
+ * 업로드용 Excel 양식 다운로드 (exceljs 사용 - 드롭다운 지원)
  */
-export function downloadExcelTemplate(
+export async function downloadExcelTemplate(
   mediumNames: string[] = [],
   categoryNames: string[] = [],
 ) {
+  const ExcelJS = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
   const statusList = ["접수", "진행", "완료", "보류"];
+  const maxRow = 100;
 
-  const templateData = [
-    {
-      문의일자: format(new Date(), "yyyy-MM-dd"),
-      상담매체: mediumNames[0] ?? "전화",
-      업체명: "샘플업체",
-      연락처: "010-1234-5678",
-      이메일: "sample@example.com",
-      취급품목: "",
-      문의품목: categoryNames[0] ?? "",
-      상담내용: "제품 문의입니다.",
-      상태: "접수",
-    },
+  // === 상담등록양식 시트 ===
+  const ws = workbook.addWorksheet("상담등록양식");
+
+  // 헤더
+  const headers = ["문의일자", "상담매체", "업체명", "연락처", "이메일", "취급품목", "문의품목", "상담내용", "상태"];
+  ws.addRow(headers);
+
+  // 샘플 데이터
+  ws.addRow([
+    format(new Date(), "yyyy-MM-dd"),
+    mediumNames[0] ?? "전화",
+    "샘플업체",
+    "010-1234-5678",
+    "sample@example.com",
+    "",
+    categoryNames[0] ?? "",
+    "제품 문의입니다.",
+    "접수",
+  ]);
+
+  // 컬럼 너비
+  ws.columns = [
+    { width: 14 }, { width: 12 }, { width: 16 }, { width: 16 },
+    { width: 26 }, { width: 26 }, { width: 26 }, { width: 50 }, { width: 10 },
   ];
 
-  const worksheet = XLSX.utils.json_to_sheet(templateData);
+  // 헤더 스타일
+  ws.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2EFDA" } };
+  });
 
-  // 컬럼 너비 설정
-  worksheet["!cols"] = [
-    { wch: 12 },  // 문의일자
-    { wch: 10 },  // 상담매체
-    { wch: 15 },  // 업체명
-    { wch: 15 },  // 연락처
-    { wch: 25 },  // 이메일
-    { wch: 25 },  // 취급품목
-    { wch: 25 },  // 문의품목
-    { wch: 50 },  // 상담내용
-    { wch: 8 },   // 상태
-  ];
+  // 드롭다운 설정 (2행~maxRow행)
+  const mediumFormula = `"${mediumNames.join(",")}"`;
+  const statusFormula = `"${statusList.join(",")}"`;
+  const categoryFormula = categoryNames.length > 0 ? `"${categoryNames.join(",")}"` : null;
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "상담등록양식");
+  for (let row = 2; row <= maxRow; row++) {
+    // 상담매체 (B열)
+    if (mediumNames.length > 0) {
+      ws.getCell(`B${row}`).dataValidation = {
+        type: "list",
+        allowBlank: false,
+        formulae: [mediumFormula],
+        showErrorMessage: true,
+        errorTitle: "입력 오류",
+        error: `다음 중 선택: ${mediumNames.join(", ")}`,
+      };
+    }
 
-  // 안내사항 + 허용 값 목록 시트
+    // 상태 (I열)
+    ws.getCell(`I${row}`).dataValidation = {
+      type: "list",
+      allowBlank: true,
+      formulae: [statusFormula],
+      showErrorMessage: true,
+      errorTitle: "입력 오류",
+      error: `다음 중 선택: ${statusList.join(", ")}`,
+    };
+
+    // 문의품목 (G열)
+    if (categoryFormula) {
+      ws.getCell(`G${row}`).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: [categoryFormula],
+        showErrorMessage: true,
+        errorTitle: "입력 오류",
+        error: `다음 중 선택: ${categoryNames.join(", ")}`,
+      };
+    }
+  }
+
+  // === 입력안내 시트 ===
+  const guide = workbook.addWorksheet("입력안내");
   const mediumStr = mediumNames.length > 0 ? mediumNames.join(", ") : "전화, 채널톡, 메일, 카카오톡, 기타";
   const categoryStr = categoryNames.length > 0 ? categoryNames.join(", ") : "자유 입력";
 
-  const guideData = [
-    { 항목: "문의일자", 설명: "YYYY-MM-DD 형식 (예: 2024-01-15)", 필수: "O" },
-    { 항목: "상담매체", 설명: `아래 목록에서 정확히 입력: ${mediumStr}`, 필수: "O" },
-    { 항목: "업체명", 설명: "업체명 (없으면 자동 생성)", 필수: "O" },
-    { 항목: "연락처", 설명: "연락처 (선택)", 필수: "" },
-    { 항목: "이메일", 설명: "이메일 주소 (선택)", 필수: "" },
-    { 항목: "취급품목", 설명: "쉼표(,)로 구분하여 입력 (선택)", 필수: "" },
-    { 항목: "문의품목", 설명: `아래 목록에서 입력: ${categoryStr}`, 필수: "" },
-    { 항목: "상담내용", 설명: "상담 내용", 필수: "O" },
-    { 항목: "상태", 설명: `${statusList.join(", ")} 중 선택 (기본: 접수)`, 필수: "" },
-  ];
-  const guideSheet = XLSX.utils.json_to_sheet(guideData);
-  guideSheet["!cols"] = [{ wch: 12 }, { wch: 55 }, { wch: 6 }];
+  guide.addRow(["항목", "설명", "필수"]);
+  guide.addRow(["문의일자", "YYYY-MM-DD 형식 (예: 2024-01-15)", "O"]);
+  guide.addRow(["상담매체", `드롭다운 선택: ${mediumStr}`, "O"]);
+  guide.addRow(["업체명", "업체명 (없으면 자동 생성)", "O"]);
+  guide.addRow(["연락처", "연락처 (선택)", ""]);
+  guide.addRow(["이메일", "이메일 주소 (선택)", ""]);
+  guide.addRow(["취급품목", "쉼표(,)로 구분하여 입력 (선택)", ""]);
+  guide.addRow(["문의품목", `드롭다운 선택: ${categoryStr}`, ""]);
+  guide.addRow(["상담내용", "상담 내용", "O"]);
+  guide.addRow(["상태", `드롭다운 선택: ${statusList.join(", ")} (기본: 접수)`, ""]);
 
-  // 안내 시트 아래에 허용 값 목록 추가
-  const startRow = guideData.length + 3; // 빈 행 추가 후
+  guide.columns = [{ width: 12 }, { width: 55 }, { width: 6 }];
+  guide.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true };
+  });
 
-  // "허용 값 목록" 헤더
-  XLSX.utils.sheet_add_aoa(guideSheet, [
-    [],
-    ["[허용 값 목록]"],
-    ["상담매체", "상태", "문의품목"],
-  ], { origin: `A${startRow}` });
-
-  // 허용 값 데이터
-  const maxLen = Math.max(mediumNames.length, statusList.length, categoryNames.length);
-  const valueRows: (string | undefined)[][] = [];
-  for (let i = 0; i < maxLen; i++) {
-    valueRows.push([
-      mediumNames[i] ?? "",
-      statusList[i] ?? "",
-      categoryNames[i] ?? "",
-    ]);
-  }
-  XLSX.utils.sheet_add_aoa(guideSheet, valueRows, { origin: `A${startRow + 2}` });
-
-  XLSX.utils.book_append_sheet(workbook, guideSheet, "입력안내");
-
-  XLSX.writeFile(workbook, "상담등록_양식.xlsx");
+  // 파일 다운로드
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "상담등록_양식.xlsx";
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 /**
