@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm dev)",
+      "Bash(taskkill //F //PID 39028)",
+      "Bash(curl:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm build:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
