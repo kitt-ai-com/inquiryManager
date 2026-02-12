@@ -12,8 +12,16 @@ export async function GET(request: NextRequest) {
       Object.fromEntries(searchParams.entries())
     );
 
-    const { page, limit, search, medium_id, category_id, status, date_from, date_to } = filters;
+    const { page, limit, search, medium_id, category_id, status, date } = filters;
     const offset = (page - 1) * limit;
+
+    // 카테고리 필터 시 !inner 조인으로 필터링
+    const categoriesJoin = category_id
+      ? "consultation_categories!inner(category:item_categories(*))"
+      : "consultation_categories(category:item_categories(*))";
+
+    // 검색 시 clients !inner 조인
+    const clientsJoin = search ? "client:clients!inner(*)" : "client:clients(*)";
 
     let query = supabase
       .from("consultations")
@@ -21,8 +29,8 @@ export async function GET(request: NextRequest) {
         `
         *,
         medium:mediums(*),
-        client:clients(*),
-        consultation_categories(category:item_categories(*)),
+        ${clientsJoin},
+        ${categoriesJoin},
         consultation_tags(tag:tags(*))
         `,
         { count: "exact" }
@@ -32,39 +40,19 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (search) {
-      query = supabase
-        .from("consultations")
-        .select(
-          `
-          *,
-          medium:mediums(*),
-          client:clients!inner(*),
-          consultation_categories(category:item_categories(*)),
-          consultation_tags(tag:tags(*))
-          `,
-          { count: "exact" }
-        )
-        .is("deleted_at", null)
-        .or(`content.ilike.%${search}%,client.name.ilike.%${search}%`)
-        .order("consulted_at", { ascending: false })
-        .range(offset, offset + limit - 1);
+      query = query.or(`content.ilike.%${search}%,client.name.ilike.%${search}%`);
     }
-
     if (medium_id) {
       query = query.eq("medium_id", medium_id);
     }
     if (category_id) {
-      // 카테고리 필터는 조인 테이블을 통해 필터링
       query = query.eq("consultation_categories.category_id", category_id);
     }
     if (status) {
       query = query.eq("status", status);
     }
-    if (date_from) {
-      query = query.gte("consulted_at", date_from);
-    }
-    if (date_to) {
-      query = query.lte("consulted_at", date_to);
+    if (date) {
+      query = query.gte("consulted_at", `${date}T00:00:00`).lte("consulted_at", `${date}T23:59:59`);
     }
 
     const { data, error, count } = await query;

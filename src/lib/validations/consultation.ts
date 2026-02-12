@@ -43,8 +43,7 @@ export const consultationFiltersSchema = z.object({
   medium_id: z.uuid().optional(),
   category_id: z.uuid().optional(),
   status: consultationStatus.optional(),
-  date_from: z.string().optional(),
-  date_to: z.string().optional(),
+  date: z.string().optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });

@@ -57,8 +57,7 @@ export function ConsultationFiltersToolbar({
     filters.medium_id ||
     filters.category_id ||
     filters.status ||
-    filters.date_from ||
-    filters.date_to;
+    filters.date;
 
   const handleReset = () => {
     setSearchValue("");
@@ -153,22 +152,13 @@ export function ConsultationFiltersToolbar({
         </SelectContent>
       </Select>
 
-      {/* 시작일 */}
+      {/* 문의일자 */}
       <DatePickerFilter
-        value={filters.date_from}
+        value={filters.date}
         onChange={(date) =>
-          onFiltersChange({ ...filters, date_from: date, page: 1 })
+          onFiltersChange({ ...filters, date, page: 1 })
         }
-        placeholder="시작일"
-      />
-
-      {/* 종료일 */}
-      <DatePickerFilter
-        value={filters.date_to}
-        onChange={(date) =>
-          onFiltersChange({ ...filters, date_to: date, page: 1 })
-        }
-        placeholder="종료일"
+        placeholder="문의일자"
       />
 
       {/* 필터 초기화 */}

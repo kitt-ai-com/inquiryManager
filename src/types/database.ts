@@ -94,8 +94,7 @@ export interface ConsultationFilters {
   medium_id?: string;
   category_id?: string;
   status?: ConsultationStatus;
-  date_from?: string;
-  date_to?: string;
+  date?: string;
   page?: number;
   limit?: number;
 }
