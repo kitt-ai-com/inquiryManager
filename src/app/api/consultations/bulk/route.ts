@@ -48,6 +48,23 @@ export async function POST(request: NextRequest) {
       .eq("is_active", true);
 
     const mediumMap = new Map(mediums?.map((m) => [m.name, m.id]) ?? []);
+    const mediumNames = Array.from(mediumMap.keys());
+
+    // 매체명 유사 매칭 (예: "이메일" → "메일", "전화기" → "전화")
+    function findMediumId(input: string): { id: string; matched: string } | undefined {
+      const trimmed = input.trim();
+      // 1. 정확히 일치
+      const exact = mediumMap.get(trimmed);
+      if (exact) return { id: exact, matched: trimmed };
+
+      // 2. 입력값이 매체명을 포함하거나, 매체명이 입력값을 포함
+      for (const name of mediumNames) {
+        if (trimmed.includes(name) || name.includes(trimmed)) {
+          return { id: mediumMap.get(name)!, matched: name };
+        }
+      }
+      return undefined;
+    }
 
     // 기존 업체 목록 가져오기
     const { data: existingClients } = await supabase
@@ -80,16 +97,17 @@ export async function POST(request: NextRequest) {
       const rowNum = i + 2; // Excel 행 번호 (헤더 + 1-indexed)
 
       try {
-        // 1. 매체 확인
-        const mediumId = mediumMap.get(row.상담매체);
-        if (!mediumId) {
+        // 1. 매체 확인 (유사 매칭 지원)
+        const mediumMatch = findMediumId(row.상담매체);
+        if (!mediumMatch) {
           result.failed++;
           result.errors.push({
             row: rowNum,
-            message: `알 수 없는 상담매체: ${row.상담매체}`,
+            message: `알 수 없는 상담매체: ${row.상담매체} (허용: ${mediumNames.join(", ")})`,
           });
           continue;
         }
+        const mediumId = mediumMatch.id;
 
         // 2. 날짜 파싱
         let consultedAt: string;

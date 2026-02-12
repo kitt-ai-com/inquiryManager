@@ -34,17 +34,23 @@ export interface ExcelUploadRow {
 
 /**
  * 업로드용 Excel 양식 다운로드
+ * mediumNames, categoryNames를 받아서 안내 시트에 허용 값 목록 표시
  */
-export function downloadExcelTemplate() {
+export function downloadExcelTemplate(
+  mediumNames: string[] = [],
+  categoryNames: string[] = [],
+) {
+  const statusList = ["접수", "진행", "완료", "보류"];
+
   const templateData = [
     {
       문의일자: format(new Date(), "yyyy-MM-dd"),
-      상담매체: "전화",
+      상담매체: mediumNames[0] ?? "전화",
       업체명: "샘플업체",
       연락처: "010-1234-5678",
       이메일: "sample@example.com",
-      취급품목: "에어셀, 아이스팩",
-      문의품목: "에어완충재, 보냉백",
+      취급품목: "",
+      문의품목: categoryNames[0] ?? "",
       상담내용: "제품 문의입니다.",
       상태: "접수",
     },
@@ -68,20 +74,46 @@ export function downloadExcelTemplate() {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "상담등록양식");
 
-  // 안내사항 시트 추가
+  // 안내사항 + 허용 값 목록 시트
+  const mediumStr = mediumNames.length > 0 ? mediumNames.join(", ") : "전화, 채널톡, 메일, 카카오톡, 기타";
+  const categoryStr = categoryNames.length > 0 ? categoryNames.join(", ") : "자유 입력";
+
   const guideData = [
     { 항목: "문의일자", 설명: "YYYY-MM-DD 형식 (예: 2024-01-15)", 필수: "O" },
-    { 항목: "상담매체", 설명: "전화, 채널톡, 메일, 카카오톡, 기타 중 선택", 필수: "O" },
+    { 항목: "상담매체", 설명: `아래 목록에서 정확히 입력: ${mediumStr}`, 필수: "O" },
     { 항목: "업체명", 설명: "업체명 (없으면 자동 생성)", 필수: "O" },
     { 항목: "연락처", 설명: "연락처 (선택)", 필수: "" },
     { 항목: "이메일", 설명: "이메일 주소 (선택)", 필수: "" },
     { 항목: "취급품목", 설명: "쉼표(,)로 구분하여 입력 (선택)", 필수: "" },
-    { 항목: "문의품목", 설명: "쉼표(,)로 구분하여 입력 (선택)", 필수: "" },
+    { 항목: "문의품목", 설명: `아래 목록에서 입력: ${categoryStr}`, 필수: "" },
     { 항목: "상담내용", 설명: "상담 내용", 필수: "O" },
-    { 항목: "상태", 설명: "접수, 진행, 완료, 보류 중 선택 (기본: 접수)", 필수: "" },
+    { 항목: "상태", 설명: `${statusList.join(", ")} 중 선택 (기본: 접수)`, 필수: "" },
   ];
   const guideSheet = XLSX.utils.json_to_sheet(guideData);
-  guideSheet["!cols"] = [{ wch: 12 }, { wch: 50 }, { wch: 6 }];
+  guideSheet["!cols"] = [{ wch: 12 }, { wch: 55 }, { wch: 6 }];
+
+  // 안내 시트 아래에 허용 값 목록 추가
+  const startRow = guideData.length + 3; // 빈 행 추가 후
+
+  // "허용 값 목록" 헤더
+  XLSX.utils.sheet_add_aoa(guideSheet, [
+    [],
+    ["[허용 값 목록]"],
+    ["상담매체", "상태", "문의품목"],
+  ], { origin: `A${startRow}` });
+
+  // 허용 값 데이터
+  const maxLen = Math.max(mediumNames.length, statusList.length, categoryNames.length);
+  const valueRows: (string | undefined)[][] = [];
+  for (let i = 0; i < maxLen; i++) {
+    valueRows.push([
+      mediumNames[i] ?? "",
+      statusList[i] ?? "",
+      categoryNames[i] ?? "",
+    ]);
+  }
+  XLSX.utils.sheet_add_aoa(guideSheet, valueRows, { origin: `A${startRow + 2}` });
+
   XLSX.utils.book_append_sheet(workbook, guideSheet, "입력안내");
 
   XLSX.writeFile(workbook, "상담등록_양식.xlsx");

@@ -27,6 +27,8 @@ import {
 } from "@/lib/utils/export-excel";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useMediums } from "@/hooks/use-mediums";
+import { useCategories } from "@/hooks/use-categories";
 
 interface BulkUploadDialogProps {
   open: boolean;
@@ -49,6 +51,10 @@ export function BulkUploadDialog({ open, onOpenChange }: BulkUploadDialogProps) 
   const [errorMessage, setErrorMessage] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { data: mediumsData } = useMediums();
+  const { data: categoriesData } = useCategories();
+  const mediumNames = (mediumsData?.data ?? []).map((m) => m.name);
+  const categoryNames = (categoriesData?.data ?? []).map((c) => c.name);
 
   const resetState = () => {
     setStatus("idle");
@@ -167,7 +173,7 @@ export function BulkUploadDialog({ open, onOpenChange }: BulkUploadDialogProps) 
                   입력 양식과 안내사항이 포함된 Excel 파일
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={downloadExcelTemplate}>
+              <Button variant="outline" size="sm" onClick={() => downloadExcelTemplate(mediumNames, categoryNames)}>
                 <Download className="mr-1 size-4" />
                 양식 다운로드
               </Button>

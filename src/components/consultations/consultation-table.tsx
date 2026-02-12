@@ -14,6 +14,8 @@ import {
   useBulkDeleteConsultations,
 } from "@/hooks/use-consultations";
 import { useUpdateClient } from "@/hooks/use-clients";
+import { useMediums } from "@/hooks/use-mediums";
+import { useCategories } from "@/hooks/use-categories";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -46,8 +48,12 @@ export function ConsultationTable() {
   const updateClient = useUpdateClient();
   const deleteConsultation = useDeleteConsultation();
   const bulkDelete = useBulkDeleteConsultations();
+  const { data: mediumsData } = useMediums();
+  const { data: categoriesData } = useCategories();
 
   const consultations = data?.data ?? [];
+  const mediumNames = (mediumsData?.data ?? []).map((m) => m.name);
+  const categoryNames = (categoriesData?.data ?? []).map((c) => c.name);
   const total = data?.total ?? 0;
   const page = data?.page ?? 1;
   const limit = filters.limit ?? 20;
@@ -201,7 +207,7 @@ export function ConsultationTable() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={downloadExcelTemplate}>
+              <DropdownMenuItem onClick={() => downloadExcelTemplate(mediumNames, categoryNames)}>
                 <FileSpreadsheet className="mr-2 size-4" />
                 양식 다운로드
               </DropdownMenuItem>
