@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useTransition, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -19,21 +19,22 @@ import { login } from "@/lib/auth/actions";
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
 function LoginForm() {
-  const [isPending, setIsPending] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
 
-  async function handleSubmit(formData: FormData) {
-    setIsPending(true);
-    setError(null);
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
 
-    const result = await login(formData);
-
-    if (result?.error) {
-      setError(result.error);
-      setIsPending(false);
-    }
+    startTransition(async () => {
+      setError(null);
+      const result = await login(formData);
+      if (result?.error) {
+        setError(result.error);
+      }
+    });
   }
 
   return (
@@ -43,7 +44,7 @@ function LoginForm() {
           <CardTitle className="text-2xl">CS Manager</CardTitle>
           <CardDescription>로그인하여 시작하세요</CardDescription>
         </CardHeader>
-        <form action={handleSubmit}>
+        <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {message && (
               <Alert>

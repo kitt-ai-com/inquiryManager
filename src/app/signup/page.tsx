@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,19 +18,20 @@ import { signup } from "@/lib/auth/actions";
 import { Loader2, AlertCircle } from "lucide-react";
 
 export default function SignupPage() {
-  const [isPending, setIsPending] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(formData: FormData) {
-    setIsPending(true);
-    setError(null);
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
 
-    const result = await signup(formData);
-
-    if (result?.error) {
-      setError(result.error);
-      setIsPending(false);
-    }
+    startTransition(async () => {
+      setError(null);
+      const result = await signup(formData);
+      if (result?.error) {
+        setError(result.error);
+      }
+    });
   }
 
   return (
@@ -40,7 +41,7 @@ export default function SignupPage() {
           <CardTitle className="text-2xl">회원가입</CardTitle>
           <CardDescription>CS Manager 계정을 생성하세요</CardDescription>
         </CardHeader>
-        <form action={handleSubmit}>
+        <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
               <Alert variant="destructive">
